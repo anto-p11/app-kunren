@@ -7,7 +7,7 @@ import os
 st.set_page_config(page_title="Kunren", page_icon="💪", layout="centered")
 
 DATA_FILE = "historial_habitos.csv"
-META_PESO = 55.0  # Tu meta establecida
+META_PESO = 55.0
 
 # --- 2. CÁLCULOS INTELIGENTES (Rachas y Progreso) ---
 def calcular_racha_actual(df):
@@ -27,16 +27,14 @@ def mostrar_progreso_peso(df, peso_actual):
         st.info("Registra tu primer peso para activar la barra de progreso.")
         return
     
-    # Tomamos el primer peso registrado como punto de partida
     peso_inicial = df.sort_values("Fecha").iloc[0]["Peso (kg)"]
     
     if peso_inicial <= META_PESO:
         st.success(f"¡Ya estás en tu meta o por debajo! 🎉 ({peso_actual} kg)")
         return
 
-    # Cálculo del porcentaje de progreso
     progreso = (peso_inicial - peso_actual) / (peso_inicial - META_PESO)
-    progreso = max(0.0, min(1.0, progreso)) # Asegura que esté entre 0 y 1
+    progreso = max(0.0, min(1.0, progreso))
     
     faltan = round(peso_actual - META_PESO, 1)
     
@@ -79,7 +77,6 @@ with col_racha2:
             icono = "🏆" if row["Día Perfecto"] == 1 else "❌"
             st.markdown(f"`{row['Fecha']}` {icono}")
 
-# Visualización de la Barra de Progreso de Peso
 st.write("")
 if not df_historial.empty:
     ultimo_peso = df_historial.sort_values("Fecha").iloc[-1]["Peso (kg)"]
@@ -87,25 +84,62 @@ if not df_historial.empty:
 
 st.write("---")
 
-# --- 5. BLOQUE DE REGISTRO ---
+# Selector de Fecha (Ubicado arriba para definir la carga de datos de inmediato)
+fecha_hoy = st.date_input("Fecha de registro", datetime.date.today())
+fecha_str = fecha_hoy.strftime("%Y-%m-%d")
+
+# --- VALORES INICIALES DINÁMICOS (El secreto del guardado parcial) ---
+val_peso = 66.0
+val_modo = "Universidad"
+val_rutina = "Push (Empuje)"
+val_agua = 0
+val_busto = 0.0
+val_brazos = 0.0
+val_cintura = 0.0
+val_cadera = 0.0
+val_piernas = 0.0
+val_hexalectol = False
+val_higiene = False
+val_alimentacion = False
+val_magnesio = False
+
+# Si la fecha ya existe en el historial, rescatamos sus datos para usarlos como base
+if not df_historial.empty and fecha_str in df_historial["Fecha"].values:
+    fila_hoy = df_historial[df_historial["Fecha"] == fecha_str].iloc[0]
+    val_peso = float(fila_hoy.get("Peso (kg)", 66.0))
+    val_modo = str(fila_hoy.get("Modo del día", "Universidad"))
+    val_rutina = str(fila_hoy.get("Rutina Elegida", "Push (Empuje)"))
+    val_agua = int(fila_hoy.get("Botellas de agua", 0))
+    val_busto = float(fila_hoy.get("Busto (cm)", 0.0))
+    val_brazos = float(fila_hoy.get("Brazos (cm)", 0.0))
+    val_cintura = float(fila_hoy.get("Cintura (cm)", 0.0))
+    val_cadera = float(fila_hoy.get("Cadera (cm)", 0.0))
+    val_piernas = float(fila_hoy.get("Piernas (cm)", 0.0))
+    val_hexalectol = bool(fila_hoy.get("Hexalectol AM", False))
+    val_higiene = bool(fila_hoy.get("Higiene", False))
+    val_alimentacion = bool(fila_hoy.get("Alimentación", False))
+    val_magnesio = bool(fila_hoy.get("Magnesio PM", False))
+
+lista_modos = ["Universidad", "Fin de semana", "Vacaciones"]
+idx_modo = lista_modos.index(val_modo) if val_modo in lista_modos else 0
+
+lista_rutinas = ["Push (Empuje)", "Pull (Tirón)", "Legs (Piernas)", "Upper Body", "Lower Body", "Descanso Activo", "Cardio"]
+idx_rutina = lista_rutinas.index(val_rutina) if val_rutina in lista_rutinas else 0
+
+
+# --- 5. BLOQUE DE REGISTRO VISUAL ---
 with st.container():
     col1, col2 = st.columns(2)
     with col1:
-        fecha_hoy = st.date_input("Fecha de registro", datetime.date.today())
-        fecha_str = fecha_hoy.strftime("%Y-%m-%d")
+        peso_input = st.number_input("Peso actual (kg)", min_value=30.0, max_value=150.0, value=val_peso, step=0.1)
     with col2:
-        peso_input = st.number_input("Peso actual (kg)", min_value=30.0, max_value=150.0, value=66.0, step=0.1)
+        agua = st.number_input("💧 Botellas de agua", min_value=0, max_value=10, value=val_agua, step=1)
 
     col3, col4 = st.columns(2)
     with col3:
-        modo_dia = st.selectbox("Modo del día", ["Universidad", "Fin de semana", "Vacaciones"])
+        modo_dia = st.selectbox("Modo del día", lista_modos, index=idx_modo)
     with col4:
-        rutina_elegida = st.selectbox(
-            "¿Qué entrenamos hoy?", 
-            ["Push (Empuje)", "Pull (Tirón)", "Legs (Piernas)", "Upper Body", "Lower Body", "Descanso Activo", "Cardio"]
-        )
-
-    agua = st.number_input("💧 Botellas de agua", min_value=0, max_value=10, value=0, step=1)
+        rutina_elegida = st.selectbox("¿Qué entrenamos hoy?", lista_rutinas, index=idx_rutina)
 
 # --- 6. SECCIÓN DE MEDIDAS SEPARADAS ---
 st.write("---")
@@ -113,27 +147,27 @@ with st.expander("📏 Dimensiones Corporales", expanded=False):
     st.markdown("#### 📐 Tren Superior")
     col_sup1, col_sup2 = st.columns(2)
     with col_sup1:
-        busto = st.number_input("Busto (cm)", min_value=0.0, value=0.0, step=0.1)
+        busto = st.number_input("Busto (cm)", min_value=0.0, value=val_busto, step=0.1)
     with col_sup2:
-        brazos = st.number_input("Brazos (cm)", min_value=0.0, value=0.0, step=0.1)
+        brazos = st.number_input("Brazos (cm)", min_value=0.0, value=val_brazos, step=0.1)
         
     st.markdown("#### 📐 Zona Media e Inferior")
     col_inf1, col_inf2, col_inf3 = st.columns(3)
     with col_inf1:
-        cintura = st.number_input("Cintura (cm)", min_value=0.0, value=0.0, step=0.1)
+        cintura = st.number_input("Cintura (cm)", min_value=0.0, value=val_cintura, step=0.1)
     with col_inf2:
-        cadera = st.number_input("Cadera (cm)", min_value=0.0, value=0.0, step=0.1)
+        cadera = st.number_input("Cadera (cm)", min_value=0.0, value=val_cadera, step=0.1)
     with col_inf3:
-        piernas = st.number_input("Piernas (cm)", min_value=0.0, value=0.0, step=0.1)
+        piernas = st.number_input("Piernas (cm)", min_value=0.0, value=val_piernas, step=0.1)
 
 # --- 7. CHECK DE HÁBITOS ---
 st.write("---")
 st.subheader("🎛️ Check de Hábitos")
 with st.container():
-    h_hexalectol = st.checkbox("💊 Hexalectol AM")
-    h_higiene = st.checkbox("🪥 Higiene Completa")
-    h_alimentacion = st.checkbox("🥩 Alimentación Alta en Proteína")
-    h_magnesio = st.checkbox("🌙 Magnesio PM")
+    h_hexalectol = st.checkbox("💊 Hexalectol AM", value=val_hexalectol)
+    h_higiene = st.checkbox("🪥 Higiene Completa", value=val_higiene)
+    h_alimentacion = st.checkbox("🥩 Alimentación Alta en Proteína", value=val_alimentacion)
+    h_magnesio = st.checkbox("🌙 Magnesio PM", value=val_magnesio)
 
 habitos_cumplidos = sum([h_hexalectol, h_higiene, h_alimentacion, h_magnesio])
 dia_perfecto = 1 if habitos_cumplidos == 4 else 0
@@ -146,7 +180,7 @@ if dia_perfecto == 1:
 else:
     m2.info("Aún faltan hábitos")
 
-# --- 8. ALMACENAMIENTO ---
+# --- 8. ALMACENAMIENTO SEGURO ---
 if st.button("💾 Guardar Registro del Día", type="primary", use_container_width=True):
     nueva_fila = pd.DataFrame([{
         "Fecha": fecha_str, "Peso (kg)": peso_input, 
@@ -162,7 +196,7 @@ if st.button("💾 Guardar Registro del Día", type="primary", use_container_wid
         df_historial = pd.concat([df_historial, nueva_fila], ignore_index=True)
         
     df_historial.to_csv(DATA_FILE, index=False)
-    st.success("¡Registro guardado exitosamente!")
+    st.success("¡Progreso del día actualizado con éxito!")
     st.rerun()
 
 # --- 9. HISTORIAL GRÁFICO ---
