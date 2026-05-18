@@ -9,7 +9,7 @@ st.set_page_config(page_title="Kunren", page_icon="💪", layout="centered")
 DATA_FILE = "historial_habitos.csv"
 META_PESO = 55.0
 
-# --- 2. CÁLCULOS INTELIGENTES (Rachas y Progreso) ---
+# --- 2. CÁLCULOS INTELIGENTES ---
 def calcular_racha_actual(df):
     if df.empty or "Día Perfecto" not in df.columns:
         return 0
@@ -65,7 +65,6 @@ racha_actual = calcular_racha_actual(df_historial)
 # --- 4. INTERFAZ PRINCIPAL ---
 st.title("📅 Kunren: Registro Diario")
 
-# Panel Superior: Estado de Rachas y Meta de Peso
 col_racha1, col_racha2 = st.columns(2)
 with col_racha1:
     st.metric(label="Racha Actual 🔥", value=f"{racha_actual} días")
@@ -84,11 +83,10 @@ if not df_historial.empty:
 
 st.write("---")
 
-# Selector de Fecha (Ubicado arriba para definir la carga de datos de inmediato)
 fecha_hoy = st.date_input("Fecha de registro", datetime.date.today())
 fecha_str = fecha_hoy.strftime("%Y-%m-%d")
 
-# --- VALORES INICIALES DINÁMICOS (El secreto del guardado parcial) ---
+# --- CARGA DE DATOS PREVIOS DEL DÍA ---
 val_peso = 66.0
 val_modo = "Universidad"
 val_rutina = "Push (Empuje)"
@@ -103,7 +101,6 @@ val_higiene = False
 val_alimentacion = False
 val_magnesio = False
 
-# Si la fecha ya existe en el historial, rescatamos sus datos para usarlos como base
 if not df_historial.empty and fecha_str in df_historial["Fecha"].values:
     fila_hoy = df_historial[df_historial["Fecha"] == fecha_str].iloc[0]
     val_peso = float(fila_hoy.get("Peso (kg)", 66.0))
@@ -122,10 +119,8 @@ if not df_historial.empty and fecha_str in df_historial["Fecha"].values:
 
 lista_modos = ["Universidad", "Fin de semana", "Vacaciones"]
 idx_modo = lista_modos.index(val_modo) if val_modo in lista_modos else 0
-
 lista_rutinas = ["Push (Empuje)", "Pull (Tirón)", "Legs (Piernas)", "Upper Body", "Lower Body", "Descanso Activo", "Cardio"]
 idx_rutina = lista_rutinas.index(val_rutina) if val_rutina in lista_rutinas else 0
-
 
 # --- 5. BLOQUE DE REGISTRO VISUAL ---
 with st.container():
@@ -141,7 +136,7 @@ with st.container():
     with col4:
         rutina_elegida = st.selectbox("¿Qué entrenamos hoy?", lista_rutinas, index=idx_rutina)
 
-# --- 6. SECCIÓN DE MEDIDAS SEPARADAS ---
+# --- 6. MEDIDAS SEPARADAS ---
 st.write("---")
 with st.expander("📏 Dimensiones Corporales", expanded=False):
     st.markdown("#### 📐 Tren Superior")
@@ -180,8 +175,16 @@ if dia_perfecto == 1:
 else:
     m2.info("Aún faltan hábitos")
 
-# --- 8. ALMACENAMIENTO SEGURO ---
-if st.button("💾 Guardar Registro del Día", type="primary", use_container_width=True):
+st.write("---")
+
+# --- 8. SISTEMA DE DOBLE BOTÓN DE GUARDADO ---
+col_btn1, col_btn2 = st.columns(2)
+with col_btn1:
+    btn_guardar_avance = st.button("💾 Guardar Avance", use_container_width=True)
+with col_btn2:
+    btn_finalizar_dia = st.button("🏁 Finalizar Día", type="primary", use_container_width=True)
+
+if btn_guardar_avance or btn_finalizar_dia:
     nueva_fila = pd.DataFrame([{
         "Fecha": fecha_str, "Peso (kg)": peso_input, 
         "Busto (cm)": busto, "Cintura (cm)": cintura, "Cadera (cm)": cadera, "Brazos (cm)": brazos, "Piernas (cm)": piernas,
@@ -196,8 +199,13 @@ if st.button("💾 Guardar Registro del Día", type="primary", use_container_wid
         df_historial = pd.concat([df_historial, nueva_fila], ignore_index=True)
         
     df_historial.to_csv(DATA_FILE, index=False)
-    st.success("¡Progreso del día actualizado con éxito!")
-    st.rerun()
+    
+    if btn_finalizar_dia:
+        st.balloons()
+        st.success("¡Jornada finalizada y guardada con éxito! 🏆")
+    else:
+        # Mensaje sutil que desaparece solo, ideal para no molestar
+        st.toast('Avance guardado 💾', icon='✅')
 
 # --- 9. HISTORIAL GRÁFICO ---
 if not df_historial.empty:
