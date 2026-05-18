@@ -8,17 +8,24 @@ st.set_page_config(page_title="Kunren", page_icon="💪", layout="centered")
 
 DATA_FILE = "historial_habitos.csv"
 
-# --- 2. GESTIÓN DE DATOS (El Motor) ---
+# --- 2. GESTIÓN DE DATOS (El Motor Seguro) ---
 def cargar_datos():
+    # Estructura con las nuevas columnas de medidas
+    columnas_base = [
+        "Fecha", "Peso (kg)", "Cintura (cm)", "Cadera (cm)", "Brazos (cm)", "Piernas (cm)",
+        "Modo del día", "Rutina Elegida", "Botellas de agua",
+        "Hexalectol AM", "Higiene", "Alimentación", "Magnesio PM",
+        "Hábitos Cumplidos", "Día Perfecto"
+    ]
     if os.path.exists(DATA_FILE):
-        return pd.read_csv(DATA_FILE)
+        df = pd.read_csv(DATA_FILE)
+        # Añade columnas nuevas automáticamente si no existían antes
+        for col in columnas_base:
+            if col not in df.columns:
+                df[col] = 0.0
+        return df
     else:
-        # Estructura inicial idéntica a tu diseño original
-        return pd.DataFrame(columns=[
-            "Fecha", "Peso (kg)", "Modo del día", "Rutina Elegida", "Botellas de agua",
-            "Hexalectol AM", "Higiene", "Alimentación", "Magnesio PM",
-            "Hábitos Cumplidos", "Día Perfecto"
-        ])
+        return pd.DataFrame(columns=columnas_base)
 
 df_historial = cargar_datos()
 
@@ -35,24 +42,33 @@ with st.container():
     with col2:
         peso = st.number_input("Peso actual (kg)", min_value=30.0, max_value=150.0, value=66.0, step=0.1)
 
-    # Fila 2: Jornada y Entrenamiento
+    # Fila 2: Jornada y Entrenamiento (Actualizado)
     col3, col4 = st.columns(2)
     with col3:
         modo_dia = st.selectbox("Modo del día", ["Universidad", "Fin de semana", "Vacaciones"])
     with col4:
-        # Rutinas adaptadas a un split Push/Pull/Legs
         rutina_elegida = st.selectbox(
             "¿Qué entrenamos hoy?", 
-            ["Push (Empuje)", "Pull (Tirón)", "Legs (Piernas)", "Descanso Activo", "Cardio"]
+            ["Push (Empuje)", "Pull (Tirón)", "Legs (Piernas)", "Upper Body", "Lower Body", "Descanso Activo", "Cardio"]
         )
 
     # Fila 3: Registro de Agua
     agua = st.number_input("💧 Botellas de agua", min_value=0, max_value=10, value=0, step=1)
 
 st.write("---")
+st.subheader("📏 Medidas Corporales (Opcional)")
+# Sección nueva de medidas
+m_col1, m_col2 = st.columns(2)
+with m_col1:
+    cintura = st.number_input("Cintura (cm)", min_value=0.0, value=0.0, step=0.1)
+    brazos = st.number_input("Brazos (cm)", min_value=0.0, value=0.0, step=0.1)
+with m_col2:
+    cadera = st.number_input("Cadera (cm)", min_value=0.0, value=0.0, step=0.1)
+    piernas = st.number_input("Piernas (cm)", min_value=0.0, value=0.0, step=0.1)
+
+st.write("---")
 st.subheader("🎛️ Check de Hábitos")
 
-# Contenedor de hábitos con diseño limpio
 with st.container():
     h_hexalectol = st.checkbox("💊 Hexalectol AM")
     h_higiene = st.checkbox("🪥 Higiene Completa")
@@ -60,12 +76,10 @@ with st.container():
     h_magnesio = st.checkbox("🌙 Magnesio PM")
 
 # --- 4. CÁLCULOS INTELIGENTES ---
-# Convierte los booleanos (True/False) a números (1/0) y los suma
 habitos_cumplidos = sum([h_hexalectol, h_higiene, h_alimentacion, h_magnesio])
 dia_perfecto = 1 if habitos_cumplidos == 4 else 0
 
 st.write("---")
-# Panel de métricas en vivo
 m1, m2 = st.columns(2)
 m1.metric(label="Hábitos Logrados", value=f"{habitos_cumplidos} / 4")
 if dia_perfecto == 1:
@@ -74,41 +88,54 @@ else:
     m2.info("Aún faltan hábitos")
 
 # --- 5. BOTÓN DE GUARDADO SEGURO ---
-st.write("") # Espacio
+st.write("") 
 if st.button("💾 Guardar Registro del Día", type="primary", use_container_width=True):
     
-    # Preparamos los datos tal cual los ingresaste
     nueva_fila = pd.DataFrame([{
-        "Fecha": fecha_str,
-        "Peso (kg)": peso,
-        "Modo del día": modo_dia,
-        "Rutina Elegida": rutina_elegida,
-        "Botellas de agua": agua,
-        "Hexalectol AM": h_hexalectol,
-        "Higiene": h_higiene,
-        "Alimentación": h_alimentacion,
-        "Magnesio PM": h_magnesio,
-        "Hábitos Cumplidos": habitos_cumplidos,
-        "Día Perfecto": dia_perfecto
+        "Fecha": fecha_str, "Peso (kg)": peso, 
+        "Cintura (cm)": cintura, "Cadera (cm)": cadera, "Brazos (cm)": brazos, "Piernas (cm)": piernas,
+        "Modo del día": modo_dia, "Rutina Elegida": rutina_elegida, "Botellas de agua": agua,
+        "Hexalectol AM": h_hexalectol, "Higiene": h_higiene, "Alimentación": h_alimentacion, "Magnesio PM": h_magnesio,
+        "Hábitos Cumplidos": habitos_cumplidos, "Día Perfecto": dia_perfecto
     }])
     
-    # Lógica de sobreescritura si el día ya existe, o creación si es nuevo
     if not df_historial.empty and fecha_str in df_historial["Fecha"].values:
         df_historial.loc[df_historial["Fecha"] == fecha_str, nueva_fila.columns] = nueva_fila.values[0]
     else:
         df_historial = pd.concat([df_historial, nueva_fila], ignore_index=True)
         
-    # Guardamos en el archivo
     df_historial.to_csv(DATA_FILE, index=False)
-    st.success("¡Datos guardados de forma impecable!")
+    st.success("¡Datos y medidas guardados impecablemente!")
 
-# --- 6. PESTAÑA DE ESTADÍSTICAS ---
+# --- 6. PESTAÑA DE ESTADÍSTICAS Y GRÁFICOS ---
 if not df_historial.empty:
-    with st.expander("📊 Ver Mis Estadísticas y Gráficos"):
-        st.subheader("📉 Evolución de Peso")
-        df_grafico = df_historial.sort_values("Fecha")
-        st.line_chart(data=df_grafico, x="Fecha", y="Peso (kg)")
-        
-        st.subheader("🏋️‍♂️ Distribución de Entrenamientos")
-        rutinas_conteo = df_historial["Rutina Elegida"].value_counts()
-        st.bar_chart(rutinas_conteo)
+    st.write("---")
+    st.header("📊 Tus Estadísticas y Avances")
+    
+    df_grafico = df_historial.sort_values("Fecha")
+    
+    # Gráfico de Peso
+    st.subheader("📉 Evolución de Peso")
+    st.line_chart(data=df_grafico, x="Fecha", y="Peso (kg)")
+    
+    # Nuevo Gráfico de Medidas
+    st.subheader("📏 Avance de Medidas")
+    st.markdown("Selecciona las medidas que quieres comparar en el gráfico:")
+    metricas_elegidas = st.multiselect(
+        "Filtro de medidas:", 
+        ["Cintura (cm)", "Cadera (cm)", "Brazos (cm)", "Piernas (cm)"],
+        default=["Cintura (cm)", "Cadera (cm)"]
+    )
+    
+    if metricas_elegidas:
+        # Filtramos para que el gráfico no se caiga a cero en los días que no te mediste
+        df_medidas = df_grafico[["Fecha"] + metricas_elegidas].replace(0.0, pd.NA).dropna()
+        if not df_medidas.empty:
+            st.line_chart(data=df_medidas, x="Fecha", y=metricas_elegidas)
+        else:
+            st.info("Guarda medidas mayores a 0 para generar tu gráfico de evolución.")
+    
+    # Gráfico de Rutinas
+    st.subheader("🏋️‍♂️ Frecuencia de Entrenamientos")
+    rutinas_conteo = df_historial["Rutina Elegida"].value_counts()
+    st.bar_chart(rutinas_conteo)
